@@ -1,0 +1,233 @@
+#lang racket
+
+(require 2htdp/batch-io)
+
+(require "decision_functions.rkt")
+
+;input dataset
+(provide toytrain)
+(define toytrain "../data/toy_train.csv")
+
+(provide titanictrain)
+(define titanictrain "../data/titanic_train.csv")
+
+(provide mushroomtrain)
+(define mushroomtrain "../data/mushrooms_train.csv")
+
+
+;output tree (dot file)
+(provide toyout)
+(define toyout "../output/toy-decision-tree.dot")
+
+;reading input datasets
+;read the csv file myfile as a list of strings
+;with each line of the original file as an element of the list
+;further split each line at commas
+;so then we have a list of list of strings
+(provide toy-raw)
+(define toy-raw (cdr (read-csv-file toytrain)))
+
+(provide titanic-raw)
+(define titanic-raw (map cddr (cdr (read-csv-file titanictrain))))
+
+(provide mushroom-raw)
+(define mushroom-raw (cdr (read-csv-file mushroomtrain)))
+
+
+;function to convert data to internal numerical format
+;(features . result)
+(provide format)
+(define (format data) (match data
+                        [(cons result attributes) (cons (map string->number attributes)
+                                                        (string->number result))]))
+;list of (features . result)
+(provide toy)
+(define toy (map format toy-raw))
+
+(provide titanic)
+(define titanic (map format titanic-raw))
+
+(provide mushroom)
+(define mushroom (map format mushroom-raw))
+
+
+;============================================================================================================
+;============================================================================================================
+;============================================================================================================
+
+;get fraction of result fields that are 1
+;used to find probability value at leaf
+(provide get-leaf-prob)
+(define (get-leaf-prob data)
+  (let* ([cdr-list (map (lambda (x) (cdr x))
+                        data)]
+         [sum (apply + cdr-list)]
+         [total (length data)])
+    (/ sum total)))
+
+;get entropy of dataset
+(provide get-entropy)
+(define (get-entropy data)
+  (let* ([p (get-leaf-prob data)]
+         [n (- 1 p)]
+         [p-part (* -1 p (if (= p 0) 0 (log p 2)))]
+         [n-part (* -1 n (if (= n 0) 0 (log n 2)))])
+    (+ p-part n-part)))
+
+;total distinct values in attribute f
+(define (sieve f data)
+  (remove-duplicates (map (lambda (x) (f (car x))) data) =))
+
+;generate new dataset where : (f element) = x 
+(define (gen-dataset f x data)
+  (apply append (map (lambda (y) (if (equal? (f (car y)) x) (list y) '())) data)))
+
+(define (expected-entropy f data)
+  (let* ([k-list (sieve f data)]
+         [entropy-list (map (lambda (x) (let* ([gen (gen-dataset f x data)])
+                                          (/ (* (get-entropy gen) (length gen)) (length data))))
+                            k-list)])
+    (apply + entropy-list)))
+
+;find the difference in entropy achieved
+;by applying a decision function f to the data
+(provide entropy-diff)
+(define (entropy-diff f data)
+  (- (get-entropy data) (expected-entropy f data)))
+
+;choose the decision function that most reduces entropy of the data
+(provide choose-f)
+(define (choose-f candidates data) ; returns a decision function
+  (cond [(null? candidates) '()]
+        [(null? (cdr candidates)) (car candidates)]
+        [else (let ([t (choose-f (cdr candidates) data)])
+                (if (>= (entropy-diff (cdr (car candidates)) data) (entropy-diff (cdr t) data))
+                    (car candidates)
+                    t))]))
+
+(provide DTree)
+(struct DTree (desc func kids) #:transparent)
+
+;build a decision tree (depth limited) from the candidate decision functions and data
+(provide build-tree)
+(define (build-tree candidates data depth)
+    (cond [(null? data) (DTree (~a 0) '() '())]
+          [(= depth 0) (DTree (~a (get-leaf-prob data)) '() '())]
+          [(null? candidates) (DTree (~a (get-leaf-prob data)) '() '())]
+        [else (let* ([decided-f (choose-f candidates data)]
+                     [d (car decided-f)]
+                     [f (cdr decided-f)]
+                     [probability (get-leaf-prob data)]
+                     [len (length (caar data))]
+                     [dataset (cond [(= len 4) toy]
+                                    [(= len 7) titanic]
+                                    [else mushroom])])
+                (cond ;[(= probability 1) (DTree "1" '() '())]
+                      ;[(= probability 0) (DTree "0" '() '())]
+                      [else (DTree d f (map (lambda (x) (let* ([gen (gen-dataset f x data)])
+                                                          (build-tree (remove decided-f candidates)
+                                                                      gen
+                                                                      (- depth 1))))
+                                            (sieve f dataset)))]))]))
+
+;given a test data (features only), make a decision according to a decision tree
+;returns probability of the test data being classified as 1
+(provide make-decision)
+(define (make-decision tree test)
+
+  (define (find-tree val val-list kid-list)
+    (cond [(null? kid-list) '()]
+          [(equal? val (car val-list)) (car kid-list)]
+          [else (find-tree val (cdr val-list) (cdr kid-list))]))
+
+  (cond [(null? tree) '()]
+        [(null? (DTree-func tree)) (string->number (DTree-desc tree))]
+        [else (let* ([val ((DTree-func tree) test)] 
+                     [len (length test)]                                       
+                     [dataset (cond [(= len 4) toy]
+                                    [(= len 7) titanic]
+                                    [else mushroom])]
+                     [kid-tree (find-tree val (sieve (DTree-func tree) dataset) (DTree-kids tree))])
+                (cond [(null? (DTree-kids tree)) (string->number (DTree-desc tree))]
+                      [(null? kid-tree) 0]
+                      [else (make-decision kid-tree test)]))]))
+
+;(define toy_test '((1 1 0 50)
+;  (0 0 0 83)
+;  (1 1 1 58)
+;  (1 1 0 58)
+;  (1 1 2 86)
+;  (0 0 2 62)
+;  (1 1 2 86)
+;  (1 1 0 89)
+;  (0 0 0 92)
+;  (1 1 1 76)))
+;
+;(define test1
+;  (let* ([train toy]
+;         [test toy_test]
+;         [candidates (list y1 y2 y3)]
+;         [dtree (build-tree candidates train 3)])
+;    (map (lambda (x) (make-decision dtree x)) test)
+;    )
+;  )
+
+
+;============================================================================================================
+;============================================================================================================
+;============================================================================================================
+
+;annotate list with indices
+(define (pair-idx lst n)
+  (if (empty? lst) `() (cons (cons (car lst) n) (pair-idx (cdr lst) (+ n 1))))
+  )
+
+;generate tree edges (parent to child) and recurse to generate sub trees
+(define (dot-child children prefix tabs)
+  (apply string-append
+         (map (lambda (t)
+                (string-append tabs
+                               "r" prefix
+                               "--"
+                               "r" prefix "t" (~a (cdr t))
+                               "[label=\"" (~a (cdr t)) "\"];" "\n"
+                               (dot-helper (car t)
+                                           (string-append prefix "t" (~a (cdr t)))
+                                           (string-append tabs "\t")
+                                           )
+                               )
+                ) children
+                  )
+         )
+  )
+
+;generate tree nodes and call function to generate edges
+(define (dot-helper tree prefix tabs)
+  (let* ([node (match tree [(DTree d f c) (cons d c)])]
+         [d (car node)]
+         [c (cdr node)])
+    (string-append tabs
+                   "r"
+                   prefix
+                   "[label=\"" d "\"];" "\n\n"
+                   (dot-child (pair-idx c 0) prefix tabs)
+                   )
+    )
+  )
+
+;output tree (dot file)
+(provide display-tree)
+(define (display-tree tree outfile)
+  (write-file outfile (string-append "graph \"decision-tree\" {" "\n"
+                                     (dot-helper tree "" "\t")
+                                     "}"
+                                     )
+              )
+  )
+;(define dotfile
+;  (display-tree (build-tree (list y1 y2 y3 y4>62) toy 4) toyout)
+;  )
+
+;============================================================================================================
+;============================================================================================================
+;============================================================================================================

@@ -1,0 +1,1 @@
+("7.2" racket ("1ce84afbe616bbf900be673d2b7b657400ec94b9" . "b78bb32e2933517b3dd8ec1a443fb5999d0450d7") (collects #"errortrace" #"errortrace-key.rkt") (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt") (collects #"racket" #"struct.rkt") (indirect collects #"racket" #"match" #"gen-match.rkt") (indirect collects #"racket" #"match" #"parse.rkt"))

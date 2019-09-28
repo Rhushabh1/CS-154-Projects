@@ -1,0 +1,43 @@
+graph "decision-tree" {
+	r[label="feature3"];
+
+	r--rt0[label="0"];
+		rt0[label="feature1"];
+
+		rt0--rt0t0[label="0"];
+			rt0t0[label="feature2"];
+
+			rt0t0--rt0t0t0[label="0"];
+				rt0t0t0[label="1/6"];
+
+		rt0--rt0t1[label="1"];
+			rt0t1[label="feature2"];
+
+			rt0t1--rt0t1t0[label="0"];
+				rt0t1t0[label="3/5"];
+
+	r--rt1[label="1"];
+		rt1[label="feature1"];
+
+		rt1--rt1t0[label="0"];
+			rt1t0[label="feature2"];
+
+			rt1t0--rt1t0t0[label="0"];
+				rt1t0t0[label="2/3"];
+
+		rt1--rt1t1[label="1"];
+			rt1t1[label="1"];
+
+	r--rt2[label="2"];
+		rt2[label="feature1"];
+
+		rt2--rt2t0[label="0"];
+			rt2t0[label="feature2"];
+
+			rt2t0--rt2t0t0[label="0"];
+				rt2t0t0[label="1/2"];
+
+		rt2--rt2t1[label="1"];
+			rt2t1[label="1"];
+
+}

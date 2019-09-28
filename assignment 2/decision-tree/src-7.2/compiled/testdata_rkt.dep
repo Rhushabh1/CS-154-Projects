@@ -1,0 +1,1 @@
+("7.2" racket ("26a0b584f9573445b98ad7b4ace83b97a99ff1c6" . "6239fa3e73b0030103d52d26dccdf5ad09b111d8") (collects #"2htdp" #"batch-io.rkt") (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt"))
