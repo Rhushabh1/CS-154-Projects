@@ -1,5 +1,3 @@
-# CS-154-Projects
-
 # Cryptography
 
 • Implemented decryption using monoalphabetic substitution technique and preprocessed using lexicons
